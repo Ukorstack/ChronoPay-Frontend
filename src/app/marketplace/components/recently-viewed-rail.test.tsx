@@ -17,7 +17,7 @@
  * - Touch scroll behavior
  */
 
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi} from "vitest";
 import { RecentlyViewedRail, useRecentlyViewed, type RecentlyViewedItem } from "./recently-viewed-rail";
 
@@ -129,23 +129,28 @@ describe("RecentlyViewedRail", () => {
     const originalSetItem = localStorage.setItem;
     localStorage.setItem = () => { throw new Error("Quota exceeded"); };
 
-    // dispatch an update event
-    const updatedItems: RecentlyViewedItem[] = [{
-      id: "3", title: "New Item", price: "10 XLM", href: "/marketplace/3", viewedAt: Date.now()
-    }];
-    window.dispatchEvent(new CustomEvent("chronopay:recently-viewed-updated", {
-      detail: updatedItems
-    }));
+    try {
+      // dispatch an update event (state update + effect flush must be in act)
+      const updatedItems: RecentlyViewedItem[] = [{
+        id: "3", title: "New Item", price: "10 XLM", href: "/marketplace/3", viewedAt: Date.now()
+      }];
+      act(() => {
+        window.dispatchEvent(new CustomEvent("chronopay:recently-viewed-updated", {
+          detail: updatedItems
+        }));
+      });
 
-    // Assert error was caught and logged
-    expect(consoleSpy).toHaveBeenCalledWith(
-      "Failed to save recently viewed items:",
-      expect.any(Error)
-    );
-
-    // Restore
-    localStorage.setItem = originalSetItem;
-    consoleSpy.mockRestore();
+      // Assert error was caught and logged
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to save recently viewed items:",
+        expect.any(Error)
+      );
+    } finally {
+      // Restore — always, so a failing assertion can't leak the throwing
+      // mock into every test that follows.
+      localStorage.setItem = originalSetItem;
+      consoleSpy.mockRestore();
+    }
   });
 
   it("should render items from localStorage", () => {

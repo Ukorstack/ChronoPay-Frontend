@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import type { ToastVariant } from "@/hooks/use-toast";
 
@@ -46,7 +47,11 @@ export function RecentlyViewedRail() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
-        return normalizeItems(JSON.parse(stored) as RecentlyViewedItem[]);
+        // Cap on read too: older builds persisted more than MAX_ITEMS, so
+        // storage is untrusted input for the rail's visible length.
+        return normalizeItems(
+          JSON.parse(stored) as RecentlyViewedItem[],
+        ).slice(0, MAX_ITEMS);
       }
     } catch (error) {
       console.error("Failed to load recently viewed items:", error);
@@ -251,12 +256,15 @@ export function RecentlyViewedRail() {
             >
               {item.image && (
                 <div
-                  className="aspect-video w-full bg-zinc-800 rounded-t-lg overflow-hidden"
+                  className="relative aspect-video w-full bg-zinc-800 rounded-t-lg overflow-hidden"
                   aria-hidden="true"
                 >
-                  <img
+                  <Image
                     src={item.image}
                     alt=""
+                    fill
+                    sizes="(min-width: 640px) 192px, 70vw"
+                    loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                   />
                 </div>

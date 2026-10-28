@@ -251,11 +251,18 @@ export function usePageSize({
       : readInitialFromWindow(options, defaultValue, paramKey, storageKey),
   );
 
+  // Last value chosen through `setValue`. Needed so the hook reflects a new
+  // selection immediately: `router.replace` is asynchronous (and wrapped in a
+  // transition), so without this the caller would keep rendering the previous
+  // size until the navigation lands — and would never update at all when the
+  // router is stubbed (tests).
+  const [selectedValue, setSelectedValue] = useState<number | null>(null);
+
   // URL is the live source of truth after the initial render. In tests the
   // mock `useSearchParams` implementation drives this branch — see
   // `__tests__/results-per-page-selector.test.tsx` for examples.
   const urlValue = parseUrlParam(searchParams.get(paramKey), options);
-  const value = urlValue ?? initialValue;
+  const value = urlValue ?? selectedValue ?? initialValue;
 
   const setValue = useCallback(
     (next: number) => {
@@ -276,6 +283,7 @@ export function usePageSize({
       }
 
       writeStorage(storageKey, next);
+      setSelectedValue(next);
 
       // Update the URL inside a transition so it doesn't block input/repaint.
       startTransition(() => {
